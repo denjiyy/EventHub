@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, MapPin, Clock, Users, Search, Plus, Ticket, Home, ChevronRight } from 'lucide-react';
+import { Calendar, MapPin, Clock, Users, Search, Plus, Ticket, Home, ChevronRight, LogOut, User } from 'lucide-react';
 import { useRouter } from '../context/Router';
+import { useApp } from '../context/AppContext';
+import { AuthModal } from './AuthModal';
 
 export function Navigation() {
   const { navigate } = useRouter();
+  const { isAuthenticated, currentUser, logout } = useApp();
   const [scrolled, setScrolled] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -37,8 +41,10 @@ export function Navigation() {
             {[
               { icon: Home, label: 'Home', route: { page: 'home' as const } },
               { icon: Calendar, label: 'Events', route: { page: 'events' as const } },
-              { icon: Ticket, label: 'Bookings', route: { page: 'bookings' as const } },
-              { icon: Plus, label: 'Create', route: { page: 'create' as const } }
+              ...(isAuthenticated ? [
+                { icon: Ticket, label: 'Bookings', route: { page: 'bookings' as const } },
+                { icon: Plus, label: 'Create', route: { page: 'create' as const } }
+              ] : [])
             ].map(({ icon: Icon, label, route }) => (
               <button
                 key={label}
@@ -50,8 +56,48 @@ export function Navigation() {
               </button>
             ))}
           </div>
+
+          <div className="flex items-center space-x-3">
+            {isAuthenticated ? (
+              <>
+                <div className="hidden sm:flex items-center space-x-2 px-4 py-2 rounded-lg bg-violet-50">
+                  <User className="w-4 h-4 text-violet-600" />
+                  <span className="text-sm font-semibold text-gray-900">
+                    {currentUser?.firstName} {currentUser?.lastName}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    logout();
+                    navigate({ page: 'home' });
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-700 hover:text-red-600 hover:bg-red-50 transition-all duration-200 font-medium"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setAuthModalOpen(true)}
+                  className="px-4 py-2 text-gray-700 font-medium hover:text-violet-600 transition-colors"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => setAuthModalOpen(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg font-medium hover:shadow-lg transition-all"
+                >
+                  Sign Up
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
+
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </nav>
   );
 }

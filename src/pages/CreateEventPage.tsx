@@ -1,10 +1,32 @@
 import React, { useState } from 'react';
 import { useRouter } from '../context/Router';
 import { useApp } from '../context/AppContext';
+import { ArrowLeft, Lock } from 'lucide-react';
 
 export function CreateEventPage() {
   const { navigate } = useRouter();
-  const { addToast } = useApp();
+  const { addToast, isAuthenticated } = useApp();
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-indigo-50 pt-24 pb-20 flex items-center justify-center">
+        <div className="max-w-md w-full text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-violet-100 rounded-full mb-4">
+            <Lock className="w-8 h-8 text-violet-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">You need to sign in to create events.</p>
+          <button
+            onClick={() => navigate({ page: 'home' })}
+            className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+          >
+            Go Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',

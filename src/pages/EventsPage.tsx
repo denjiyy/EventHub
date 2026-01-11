@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Filter } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
@@ -7,18 +7,21 @@ import { EventCard } from '../components/EventCard';
 export function EventsPage() {
   const { events, loading, fetchEvents } = useApp();
   const [filters, setFilters] = useState({
-    location: '',
-    category: 'all',
-    date: ''
+    search: '',
+    category: '',
   });
   const [showFilters, setShowFilters] = useState(false);
   
-  const categories = ['all', 'Music', 'Technology', 'Art', 'Food', 'Sports', 'Comedy'];
+  const categories = ['Music', 'Technology', 'Art', 'Food', 'Sports', 'Comedy'];
+  
+  useEffect(() => {
+    fetchEvents(filters.search || filters.category ? filters : undefined);
+  }, []);
   
   const handleFilterChange = (key: string, value: string) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
-    fetchEvents(newFilters.location || newFilters.category !== 'all' || newFilters.date ? newFilters : undefined);
+    fetchEvents(newFilters.search || newFilters.category ? newFilters : undefined);
   };
   
   return (
@@ -42,14 +45,14 @@ export function EventsPage() {
         {showFilters && (
           <div className="bg-white p-6 rounded-2xl shadow-xl mb-8 border border-gray-100">
             <h2 className="text-xl font-semibold mb-4 text-gray-900">Filter Events</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Search Events</label>
                 <input
                   type="text"
-                  placeholder="Enter city..."
-                  value={filters.location}
-                  onChange={(e) => handleFilterChange('location', e.target.value)}
+                  placeholder="Search by title or description..."
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                 />
               </div>
@@ -61,20 +64,11 @@ export function EventsPage() {
                   onChange={(e) => handleFilterChange('category', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all appearance-none bg-white"
                 >
+                  <option value="">All Categories</option>
                   {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat === 'all' ? 'All Categories' : cat}</option>
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Date</label>
-                <input
-                  type="date"
-                  value={filters.date}
-                  onChange={(e) => handleFilterChange('date', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                />
               </div>
             </div>
           </div>
@@ -85,7 +79,7 @@ export function EventsPage() {
         ) : events.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {events.map(event => (
-              <EventCard key={event.id} event={event} />
+              <EventCard key={event._id} event={event} />
             ))}
           </div>
         ) : (
@@ -97,7 +91,7 @@ export function EventsPage() {
             <p className="text-gray-600 mb-6">Try adjusting your filters to see more results</p>
             <button
               onClick={() => {
-                setFilters({ location: '', category: 'all', date: '' });
+                setFilters({ search: '', category: '' });
                 fetchEvents();
               }}
               className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
