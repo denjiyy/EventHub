@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { Calendar, Clock, MapPin, Users, X, ArrowLeft, Star } from 'lucide-react';
-import { BookingFormData } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, MapPin, Users, X, ArrowLeft } from 'lucide-react';
 import { useRouter } from '../context/Router';
 import { useApp } from '../context/AppContext';
-import { MOCK_EVENTS } from '../data/mockEvents';
+import { EventService, EventResponse } from '../services/eventService';
 import { CategoryBadge } from '../components/CategoryBadge';
 
 interface EventDetailPageProps {
@@ -12,51 +11,42 @@ interface EventDetailPageProps {
 
 export function EventDetailPage({ eventId }: EventDetailPageProps) {
   const { navigate } = useRouter();
-  const { createBooking } = useApp();
-  const event = MOCK_EVENTS.find(e => e.id === eventId);
-  
-  const [formData, setFormData] = useState<BookingFormData>({
-    userName: '',
-    userEmail: '',
-    ticketCount: 1
-  });
-  
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof BookingFormData, string>>>({});
+  const { createBooking, isAuthenticated } = useApp();
+  const [event, setEvent] = useState<EventResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadEvent = async () => {
+      try {
+        setLoading(true);
+        const eventData = await EventService.getEventById(eventId);
+        setEvent(eventData);
+      } catch (error) {
+        console.error('Error loading event:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEvent();
+  }, [eventId]);
+  const [ticketCount, setTicketCount] = useState(1);
   const [submitting, setSubmitting] = useState(false);
-  
-  const validateForm = (): boolean => {
-    const errors: Partial<Record<keyof BookingFormData, string>> = {};
-    
-    if (!formData.userName.trim()) {
-      errors.userName = 'Name is required';
-    } else if (formData.userName.trim().length < 2) {
-      errors.userName = 'Name must be at least 2 characters';
-    }
-    
-    if (!formData.userEmail.trim()) {
-      errors.userEmail = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.userEmail)) {
-      errors.userEmail = 'Please enter a valid email';
-    }
-    
-    if (formData.ticketCount < 1) {
-      errors.ticketCount = 'At least 1 ticket required';
-    } else if (event && formData.ticketCount > event.availableTickets) {
-      errors.ticketCount = `Only ${event.availableTickets} tickets available`;
-    } else if (formData.ticketCount > 10) {
-      errors.ticketCount = 'Maximum 10 tickets per booking';
-    }
-    
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-  
+
   const handleSubmit = async () => {
-    if (!validateForm() || !eventId) return;
-    
+    if (!isAuthenticated) {
+      alert('Please log in to book tickets');
+      return;
+    }
+
+    if (ticketCount < 1 || !event || ticketCount > event.ticketsAvailable) {
+      alert('Invalid ticket count');
+      return;
+    }
+
     try {
       setSubmitting(true);
-      await createBooking(eventId, formData);
+      await createBooking(eventId, ticketCount);
       navigate({ page: 'bookings' });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Booking failed');
@@ -64,7 +54,18 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
       setSubmitting(false);
     }
   };
-  
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-16">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading event...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!event) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-16">
@@ -85,7 +86,7 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
     );
   }
 
-  const ticketPercentage = ((event.capacity - event.availableTickets) / event.capacity) * 100;
+  const ticketPercentage = ((event.capacity - event.ticketsAvailable) / event.capacity) * 100;
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-indigo-50 pt-24 pb-20">
@@ -106,13 +107,7 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                 
                 <div className="absolute top-6 left-6 right-6 flex items-start justify-between">
-                  <CategoryBadge category={event.category} />
-                  {event.featured && (
-                    <div className="flex items-center gap-1 bg-amber-400 text-amber-900 px-3 py-2 rounded-full text-sm font-bold shadow-lg">
-                      <Star className="w-4 h-4 fill-current" />
-                      <span>Featured</span>
-                    </div>
-                  )}
+                  <CategoryBadge category={event.category?.name || 'Event'} />
                 </div>
                 
                 <div className="absolute bottom-6 left-6 right-6">
@@ -148,7 +143,11 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
                     </div>
                     <div>
                       <div className="text-sm font-semibold text-gray-500 mb-1">Time</div>
-                      <div className="text-lg font-bold text-gray-900">{event.time}</div>
+                      <div className="text-lg font-bold text-gray-900">
+                        {new Date(event.date).toLocaleTimeString('en-US', { 
+                          hour: '2-digit', minute: '2-digit'
+                        })}
+                      </div>
                     </div>
                   </div>
                   
@@ -159,7 +158,6 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
                     <div>
                       <div className="text-sm font-semibold text-gray-500 mb-1">Location</div>
                       <div className="text-lg font-bold text-gray-900">{event.location}</div>
-                      <div className="text-sm text-gray-600">{event.city}</div>
                     </div>
                   </div>
                   
@@ -170,7 +168,7 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
                     <div>
                       <div className="text-sm font-semibold text-gray-500 mb-1">Availability</div>
                       <div className="text-lg font-bold text-gray-900">
-                        {event.availableTickets} / {event.capacity} tickets
+                        {event.ticketsAvailable} / {event.capacity} tickets
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                         <div 
@@ -184,7 +182,7 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
                 
                 <div className="mt-8 pt-8 border-t border-gray-100">
                   <div className="text-sm font-semibold text-gray-500 mb-1">Organized by</div>
-                  <div className="text-lg font-bold text-gray-900">{event.organizer}</div>
+                  <div className="text-lg font-bold text-gray-900">{event.organizer.firstName} {event.organizer.lastName}</div>
                 </div>
               </div>
             </div>
@@ -197,85 +195,32 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
               <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.userName}
-                    onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
-                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all ${
-                      formErrors.userName 
-                        ? 'border-red-500 focus:ring-red-500' 
-                        : 'border-gray-300 focus:ring-violet-500'
-                    }`}
-                    placeholder="John Doe"
-                  />
-                  {formErrors.userName && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <X className="w-4 h-4" />
-                      {formErrors.userName}
-                    </p>
-                  )}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.userEmail}
-                    onChange={(e) => setFormData({ ...formData, userEmail: e.target.value })}
-                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all ${
-                      formErrors.userEmail 
-                        ? 'border-red-500 focus:ring-red-500' 
-                        : 'border-gray-300 focus:ring-violet-500'
-                    }`}
-                    placeholder="john@example.com"
-                  />
-                  {formErrors.userEmail && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <X className="w-4 h-4" />
-                      {formErrors.userEmail}
-                    </p>
-                  )}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Number of Tickets
                   </label>
                   <input
                     type="number"
                     min="1"
-                    max={Math.min(event.availableTickets, 10)}
-                    value={formData.ticketCount}
-                    onChange={(e) => setFormData({ ...formData, ticketCount: parseInt(e.target.value) || 1 })}
-                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all ${
-                      formErrors.ticketCount 
-                        ? 'border-red-500 focus:ring-red-500' 
-                        : 'border-gray-300 focus:ring-violet-500'
-                    }`}
+                    max={Math.min(event.ticketsAvailable, 10)}
+                    value={ticketCount}
+                    onChange={(e) => setTicketCount(parseInt(e.target.value) || 1)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                   />
-                  {formErrors.ticketCount && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <X className="w-4 h-4" />
-                      {formErrors.ticketCount}
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    {event.ticketsAvailable} tickets available
+                  </p>
                 </div>
                 
                 <div className="border-t border-gray-100 pt-5 mt-5">
                   <div className="flex items-center justify-between mb-6">
                     <span className="text-gray-600 font-medium">Total Price</span>
                     <span className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-                      ${(event.price * formData.ticketCount).toFixed(2)}
+                      ${(event.price * ticketCount).toFixed(2)}
                     </span>
                   </div>
                   
                   <button
                     onClick={handleSubmit}
-                    disabled={submitting || event.availableTickets === 0}
+                    disabled={submitting || event.ticketsAvailable === 0}
                     className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
                   >
                     {submitting ? (
@@ -283,7 +228,9 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         Processing...
                       </span>
-                    ) : event.availableTickets === 0 ? (
+                    ) : !isAuthenticated ? (
+                      'Log In to Book'
+                    ) : event.ticketsAvailable === 0 ? (
                       'Sold Out'
                     ) : (
                       'Complete Booking'

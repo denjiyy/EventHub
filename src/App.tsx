@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AppContext, useAppData } from './context/AppContext';
 import { Router } from './context/Router';
 import { Navigation } from './components/Navigation';
@@ -26,6 +26,26 @@ function AppContent() {
 
 export default function App() {
   const appData = useAppData();
+
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        const hasSeeded = localStorage.getItem('db_seeded');
+        if (!hasSeeded) {
+          console.log('Seeding database with initial data...');
+          await appData.seedDatabase();
+          localStorage.setItem('db_seeded', 'true');
+        } else {
+          await appData.fetchEvents();
+        }
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        await appData.fetchEvents();
+      }
+    };
+
+    initializeApp();
+  }, []);
   
   return (
     <AppContext.Provider value={appData}>

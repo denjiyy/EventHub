@@ -1,24 +1,52 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Booking, BookingFormData, Toast } from '../types';
-import { MOCK_EVENTS } from '../data/mockEvents';
+import { EventService, EventResponse } from '../services/eventService';
+import { BookingService, BookingResponse } from '../services/bookingService';
+import { AuthService } from '../services/authService';
+import { SeedService } from '../services/seedService';
 
 interface AppContextType {
-  events: typeof MOCK_EVENTS;
-  bookings: Booking[];
+  events: EventResponse[];
+  bookings: BookingResponse[];
   loading: boolean;
   toasts: Toast[];
-  fetchEvents: (filters?: { date?: string; location?: string; category?: string }) => Promise<typeof MOCK_EVENTS>;
-  createBooking: (eventId: string, formData: BookingFormData) => Promise<Booking>;
+  isAuthenticated: boolean;
+  currentUser: any;
+  fetchEvents: (filters?: { date?: string; location?: string; category?: string }) => Promise<EventResponse[]>;
+  createBooking: (eventId: string, numberOfTickets: number) => Promise<BookingResponse>;
   addToast: (message: string, type: 'success' | 'error' | 'info') => void;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
+  logout: () => void;
+  fetchUserBookings: () => Promise<void>;
+  seedDatabase: () => Promise<void>;
 }
 
 export const AppContext = React.createContext<AppContextType | null>(null);
 
 export function useAppData() {
-  const [events, setEvents] = useState([...MOCK_EVENTS]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [events, setEvents] = useState<EventResponse[]>([]);
+  const [bookings, setBookings] = useState<BookingResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(AuthService.isAuthenticated());
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadUserProfile();
+    }
+  }, [isAuthenticated]);
+
+  const loadUserProfile = async () => {
+    try {
+      const profile = await AuthService.getProfile();
+      setCurrentUser(profile);
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      setIsAuthenticated(false);
+    }
+  };
 
   const addToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
     const id = Date.now().toString();
@@ -28,68 +56,146 @@ export function useAppData() {
     }, 4000);
   }, []);
 
-  const fetchEvents = useCallback(async (filters?: { date?: string; location?: string; category?: string }) => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
-    let filtered = [...MOCK_EVENTS];
-    
-    if (filters?.date) {
-      filtered = filtered.filter(e => e.date === filters.date);
-    }
-    if (filters?.location) {
-      filtered = filtered.filter(e => 
-        e.city.toLowerCase().includes(filters.location!.toLowerCase())
-      );
-    }
-    if (filters?.category && filters.category !== 'all') {
-      filtered = filtered.filter(e => e.category === filters.category);
-    }
-    
-    setEvents(filtered);
-    setLoading(false);
-    return filtered;
-  }, []);
+  const fetchEvents = useCallback(
+    async (filters?: { date?: string; location?: string; category?: string }) => {
+      try {
+        setLoading(true);
+        const fetchedEvents = await EventService.getAllEvents({
+          category: filters?.category,
+          search: filters?.location,
+        });
 
-  const createBooking = useCallback(async (eventId: string, formData: BookingFormData): Promise<Booking> => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const event = MOCK_EVENTS.find(e => e.id === eventId);
-    if (!event) {
-      setLoading(false);
-      throw new Error('Event not found');
-    }
-    
-    if (event.availableTickets < formData.ticketCount) {
-      setLoading(false);
-      throw new Error('Not enough tickets available');
-    }
-    
-    const booking: Booking = {
-      id: `booking-${Date.now()}`,
-      eventId: event.id,
-      eventTitle: event.title,
-      eventDate: event.date,
-      eventTime: event.time,
-      eventLocation: event.location,
-      userName: formData.userName,
-      userEmail: formData.userEmail,
-      ticketCount: formData.ticketCount,
-      totalPrice: event.price * formData.ticketCount,
-      bookedAt: new Date().toISOString()
-    };
-    
-    setBookings((prev: Booking[]) => [...prev, booking]);
-    event.availableTickets -= formData.ticketCount;
-    setEvents((prev) => prev.map(e => e.id === eventId ? {...e, availableTickets: event.availableTickets} : e));
-    
-    setLoading(false);
-    addToast('Booking confirmed! Check your email for details.', 'success');
-    return booking;
+        let filtered = fetchedEvents;
+
+        if (filters?.date) {
+          filtered = filtered.filter((e) => {
+            const eventDate = new Date(e.date).toISOString().split('T')[0];
+            return eventDate === filters.date;
+          });
+        }
+
+        setEvents(filtered);
+        setLoading(false);
+        return filtered;
+      } catch (error: any) {
+        setLoading(false);
+        addToast(error.message || 'Error fetching events', 'error');
+        return [];
+      }
+    },
+    [addToast]
+  );
+
+  const createBooking = useCallback(
+    async (eventId: string, numberOfTickets: number): Promise<BookingResponse> => {
+      try {
+        setLoading(true);
+        const booking = await BookingService.createBooking({
+          eventId,
+          numberOfTickets,
+        });
+
+        setBookings((prev) => [...prev, booking]);
+        setLoading(false);
+        addToast('Booking confirmed!', 'success');
+
+        await fetchEvents();
+
+        return booking;
+      } catch (error: any) {
+        setLoading(false);
+        addToast(error.message || 'Error creating booking', 'error');
+        throw error;
+      }
+    },
+    [addToast, fetchEvents]
+  );
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      try {
+        setLoading(true);
+        const result = await AuthService.login(email, password);
+        setCurrentUser(result.user);
+        setIsAuthenticated(true);
+        setLoading(false);
+        addToast('Login successful!', 'success');
+        await fetchUserBookings();
+      } catch (error: any) {
+        setLoading(false);
+        addToast(error.message || 'Login failed', 'error');
+        throw error;
+      }
+    },
+    [addToast]
+  );
+
+  const register = useCallback(
+    async (email: string, password: string, firstName: string, lastName: string) => {
+      try {
+        setLoading(true);
+        const result = await AuthService.register(email, password, firstName, lastName);
+        setCurrentUser(result.user);
+        setIsAuthenticated(true);
+        setLoading(false);
+        addToast('Registration successful!', 'success');
+      } catch (error: any) {
+        setLoading(false);
+        addToast(error.message || 'Registration failed', 'error');
+        throw error;
+      }
+    },
+    [addToast]
+  );
+
+  const logout = useCallback(() => {
+    AuthService.logout();
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    setBookings([]);
+    addToast('Logged out successfully', 'success');
   }, [addToast]);
 
-  return { events, bookings, loading, fetchEvents, createBooking, toasts, addToast };
+  const fetchUserBookings = useCallback(async () => {
+    try {
+      if (!isAuthenticated) return;
+      const userBookings = await BookingService.getUserBookings();
+      setBookings(userBookings);
+    } catch (error: any) {
+      console.error('Error fetching user bookings:', error);
+    }
+  }, [isAuthenticated]);
+
+  const seedDatabase = useCallback(async () => {
+    try {
+      setLoading(true);
+      await SeedService.seedDatabase();
+      setLoading(false);
+      addToast('Database seeded successfully!', 'success');
+      await fetchEvents();
+    } catch (error: any) {
+      setLoading(false);
+      addToast(error.message || 'Error seeding database', 'error');
+      throw error;
+    }
+  }, [addToast, fetchEvents]);
+
+  return {
+    events,
+    bookings,
+    loading,
+    fetchEvents,
+    createBooking,
+    toasts,
+    addToast,
+    isAuthenticated,
+    currentUser,
+    login,
+    register,
+    logout,
+    fetchUserBookings,
+    seedDatabase,
+  };
 }
 
 export function useApp() {
