@@ -36,7 +36,7 @@ export class BookingService {
         await user.save();
       }
 
-      await booking.populate('event').populate('user');
+      await booking.populate(['event', 'user']);
       return booking;
     } catch (error) {
       throw error;
