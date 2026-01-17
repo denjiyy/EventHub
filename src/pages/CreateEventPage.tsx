@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from '../context/Router';
 import { useApp } from '../context/AppContext';
 import { ArrowLeft, Lock } from 'lucide-react';
+import { CategoryService, CategoryResponse } from '../services/categoryService';
+import { EventService } from '../services/eventService';
 
 export function CreateEventPage() {
   const { navigate } = useRouter();
@@ -34,18 +36,59 @@ export function CreateEventPage() {
     time: '',
     location: '',
     city: '',
-    category: 'Music',
+    category: '',
     price: 0,
     capacity: 100
   });
   
-  const handleSubmit = () => {
-    if (!formData.title || !formData.description || !formData.date || !formData.time || !formData.location || !formData.city) {
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const cats = await CategoryService.getAllCategories();
+        setCategories(cats);
+        if (cats.length > 0) {
+          setFormData(prev => ({ ...prev, category: cats[0]._id }));
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
+  
+  const handleSubmit = async () => {
+    if (!formData.title || !formData.description || !formData.date || !formData.time || !formData.location || !formData.city || !formData.category) {
       addToast('Please fill in all required fields', 'error');
       return;
     }
-    addToast('Event created successfully!', 'success');
-    navigate({ page: 'events' });
+    
+    setLoading(true);
+    try {
+      // Combine date and time into ISO string
+      const dateTime = new Date(`${formData.date}T${formData.time}`).toISOString();
+      const fullLocation = `${formData.location}, ${formData.city}`;
+      
+      await EventService.createEvent({
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        date: dateTime,
+        location: fullLocation,
+        price: formData.price,
+        capacity: formData.capacity,
+        ticketsAvailable: formData.capacity, // Initially all tickets are available
+      });
+      
+      addToast('Event created successfully!', 'success');
+      navigate({ page: 'events' });
+    } catch (error: any) {
+      addToast(error.message || 'Failed to create event', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
   
   return (
@@ -134,12 +177,9 @@ export function CreateEventPage() {
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                 >
-                  <option value="Music">Music</option>
-                  <option value="Technology">Technology</option>
-                  <option value="Art">Art</option>
-                  <option value="Food">Food</option>
-                  <option value="Sports">Sports</option>
-                  <option value="Comedy">Comedy</option>
+                  {categories.map(cat => (
+                    <option key={cat._id} value={cat._id}>{cat.name}</option>
+                  ))}
                 </select>
               </div>
               
@@ -175,9 +215,10 @@ export function CreateEventPage() {
               </button>
               <button
                 onClick={handleSubmit}
-                className="flex-1 px-6 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-2xl transition-all transform hover:scale-105"
+                disabled={loading}
+                className="flex-1 px-6 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-2xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                Create Event
+                {loading ? 'Creating Event...' : 'Create Event'}
               </button>
             </div>
           </div>

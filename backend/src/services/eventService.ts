@@ -50,8 +50,13 @@ export class EventService {
 
       const event = new Event(eventData);
       await event.save();
-      await event.populate('category').populate('organizer', 'firstName lastName email');
-      return event;
+      
+      // Populate the saved event
+      const populatedEvent = await Event.findById(event._id)
+        .populate('category')
+        .populate('organizer', 'firstName lastName email');
+      
+      return populatedEvent;
     } catch (error) {
       throw error;
     }
