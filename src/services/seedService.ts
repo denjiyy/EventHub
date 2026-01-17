@@ -38,23 +38,24 @@ export class SeedService {
       const categories: Record<string, string> = {};
       const uniqueCategories = [...new Set(MOCK_EVENTS.map((e) => e.category))];
 
+      // First, get all existing categories
+      const existingCategories = await CategoryService.getAllCategories();
+      const existingCategoryMap = new Map(existingCategories.map(c => [c.name, c._id]));
+
       for (const categoryName of uniqueCategories) {
-        try {
-          const response = await CategoryService.createCategory({
-            name: categoryName,
-            description: `${categoryName} events`,
-          });
-          categories[categoryName] = response._id;
-          console.log(`Created category: ${categoryName}`);
-        } catch (error: any) {
-          if (error.message.includes('unique')) {
-            const allCategories = await CategoryService.getAllCategories();
-            const existing = allCategories.find((c) => c.name === categoryName);
-            if (existing) {
-              categories[categoryName] = existing._id;
-              console.log(`Category already exists: ${categoryName}`);
-            }
-          } else {
+        if (existingCategoryMap.has(categoryName)) {
+          categories[categoryName] = existingCategoryMap.get(categoryName)!;
+          console.log(`Category already exists: ${categoryName}`);
+        } else {
+          try {
+            const response = await CategoryService.createCategory({
+              name: categoryName,
+              description: `${categoryName} events`,
+            });
+            categories[categoryName] = response._id;
+            console.log(`Created category: ${categoryName}`);
+          } catch (error: any) {
+            console.error(`Error creating category ${categoryName}:`, error.message);
             throw error;
           }
         }
@@ -62,6 +63,18 @@ export class SeedService {
 
       for (const event of MOCK_EVENTS) {
         try {
+          // Check if event already exists by title and date
+          const existingEvents = await EventService.getAllEvents();
+          const eventExists = existingEvents.some(e => 
+            e.title === event.title && 
+            new Date(e.date).toISOString().split('T')[0] === event.date
+          );
+          
+          if (eventExists) {
+            console.log(`Event already exists: ${event.title}`);
+            continue;
+          }
+
           await EventService.createEvent({
             title: event.title,
             description: event.description,
@@ -75,7 +88,7 @@ export class SeedService {
           });
           console.log(`Created event: ${event.title}`);
         } catch (error: any) {
-          console.log(`Event already exists or error: ${event.title}`);
+          console.log(`Error creating event: ${event.title}`, error.message);
         }
       }
 

@@ -1,25 +1,21 @@
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 
 class APIClient {
   private baseURL: string;
-  private token: string | null;
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
-    this.token = localStorage.getItem('token');
   }
 
   setToken(token: string) {
-    this.token = token;
     localStorage.setItem('token', token);
   }
 
   getToken() {
-    return this.token;
+    return localStorage.getItem('token');
   }
 
   clearToken() {
-    this.token = null;
     localStorage.removeItem('token');
   }
 
@@ -27,8 +23,9 @@ class APIClient {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    const token = this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
   }
