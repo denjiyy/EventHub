@@ -1,10 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, Ticket, Clock, MapPin, ChevronRight, Lock } from 'lucide-react';
-import { useRouter } from '../context/Router';
 import { useApp } from '../context/AppContext';
 
 export function BookingsPage() {
-  const { navigate } = useRouter();
+  const navigate = useNavigate();
   const { bookings, isAuthenticated } = useApp();
 
   if (!isAuthenticated) {
@@ -17,7 +17,7 @@ export function BookingsPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
           <p className="text-gray-600 mb-6">You need to sign in to view your bookings.</p>
           <button
-            onClick={() => navigate({ page: 'home' })}
+            onClick={() => navigate('/')}
             className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
           >
             Go Home
@@ -43,7 +43,7 @@ export function BookingsPage() {
             <h2 className="text-3xl font-bold text-gray-900 mb-3">No bookings yet</h2>
             <p className="text-gray-600 mb-8 text-lg">Start exploring amazing events and book your first ticket!</p>
             <button
-              onClick={() => navigate({ page: 'events' })}
+              onClick={() => navigate('/events')}
               className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold text-lg hover:shadow-2xl transition-all transform hover:scale-105"
             >
               <Calendar className="w-5 h-5" />
@@ -53,24 +53,24 @@ export function BookingsPage() {
         ) : (
           <div className="space-y-6">
             {bookings.map(booking => (
-              <div key={booking.id} className="bg-white rounded-3xl shadow-xl overflow-hidden hover:shadow-2xl transition-all">
+              <div key={booking._id} className="bg-white rounded-3xl shadow-xl overflow-hidden hover:shadow-2xl transition-all">
                 <div className="p-8">
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-6">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
                         <div className="px-4 py-2 bg-emerald-100 text-emerald-700 font-bold rounded-xl text-sm border border-emerald-200">
-                          Confirmed
+                          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                         </div>
                         <div className="text-sm text-gray-500">
-                          Booked on {new Date(booking.bookedAt).toLocaleDateString()}
+                          Booked on {new Date(booking.bookingDate).toLocaleDateString()}
                         </div>
                       </div>
-                      <h3 className="text-3xl font-bold text-gray-900 mb-2">{booking.eventTitle}</h3>
-                      <p className="text-gray-600">Booking ID: {booking.id}</p>
+                      <h3 className="text-3xl font-bold text-gray-900 mb-2">{booking.event.title}</h3>
+                      <p className="text-gray-600">Booking ID: {booking._id}</p>
                     </div>
                     
                     <button
-                      onClick={() => navigate({ page: 'event-detail', id: booking.eventId })}
+                      onClick={() => navigate(`/events/${booking.event._id}`)}
                       className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all whitespace-nowrap"
                     >
                       View Event
@@ -86,7 +86,7 @@ export function BookingsPage() {
                       <div>
                         <div className="text-xs text-gray-500 font-medium">Date</div>
                         <div className="font-semibold text-gray-900">
-                          {new Date(booking.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {new Date(booking.event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </div>
                       </div>
                     </div>
@@ -97,7 +97,9 @@ export function BookingsPage() {
                       </div>
                       <div>
                         <div className="text-xs text-gray-500 font-medium">Time</div>
-                        <div className="font-semibold text-gray-900">{booking.eventTime}</div>
+                        <div className="font-semibold text-gray-900">
+                          {new Date(booking.event.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
                       </div>
                     </div>
                     
@@ -107,7 +109,7 @@ export function BookingsPage() {
                       </div>
                       <div>
                         <div className="text-xs text-gray-500 font-medium">Location</div>
-                        <div className="font-semibold text-gray-900 truncate">{booking.eventLocation}</div>
+                        <div className="font-semibold text-gray-900 truncate">{booking.event.location}</div>
                       </div>
                     </div>
                     
@@ -117,7 +119,7 @@ export function BookingsPage() {
                       </div>
                       <div>
                         <div className="text-xs text-gray-500 font-medium">Tickets</div>
-                        <div className="font-semibold text-gray-900">{booking.ticketCount} ticket(s)</div>
+                        <div className="font-semibold text-gray-900">{booking.numberOfTickets} ticket(s)</div>
                       </div>
                     </div>
                   </div>
