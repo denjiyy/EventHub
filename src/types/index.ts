@@ -40,10 +40,3 @@ export interface Toast {
   message: string;
   type: 'success' | 'error' | 'info';
 }
-
-export type Route = 
-  | { page: 'home' }
-  | { page: 'events' }
-  | { page: 'event-detail'; id: string }
-  | { page: 'bookings' }
-  | { page: 'create' };

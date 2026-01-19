@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, Clock, Users, Search, Plus, Ticket, Home, ChevronRight, LogOut, User } from 'lucide-react';
-import { useRouter } from '../context/Router';
 import { useApp } from '../context/AppContext';
 import { AuthModal } from './AuthModal';
 
 export function Navigation() {
-  const { navigate } = useRouter();
+  const navigate = useNavigate();
   const { isAuthenticated, currentUser, logout } = useApp();
   const [scrolled, setScrolled] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -15,6 +15,13 @@ export function Navigation() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 font-medium ${
+      isActive
+        ? 'text-violet-600 bg-violet-50'
+        : 'text-gray-700 hover:text-violet-600 hover:bg-violet-50'
+    }`;
   
   return (
     <nav className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
@@ -22,8 +29,8 @@ export function Navigation() {
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <button
-            onClick={() => navigate({ page: 'home' })}
+          <NavLink
+            to="/"
             className="flex items-center space-x-3 group"
           >
             <div className="relative">
@@ -35,26 +42,32 @@ export function Navigation() {
             <span className="text-xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
               EventHub
             </span>
-          </button>
+          </NavLink>
           
           <div className="flex items-center space-x-1">
-            {[
-              { icon: Home, label: 'Home', route: { page: 'home' as const } },
-              { icon: Calendar, label: 'Events', route: { page: 'events' as const } },
-              ...(isAuthenticated ? [
-                { icon: Ticket, label: 'Bookings', route: { page: 'bookings' as const } },
-                { icon: Plus, label: 'Create', route: { page: 'create' as const } }
-              ] : [])
-            ].map(({ icon: Icon, label, route }) => (
-              <button
-                key={label}
-                onClick={() => navigate(route)}
-                className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-700 hover:text-violet-600 hover:bg-violet-50 transition-all duration-200 font-medium"
-              >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{label}</span>
-              </button>
-            ))}
+            <NavLink to="/" className={navLinkClass}>
+              <Home className="w-4 h-4" />
+              <span className="hidden sm:inline">Home</span>
+            </NavLink>
+            
+            <NavLink to="/events" className={navLinkClass}>
+              <Calendar className="w-4 h-4" />
+              <span className="hidden sm:inline">Events</span>
+            </NavLink>
+            
+            {isAuthenticated && (
+              <>
+                <NavLink to="/bookings" className={navLinkClass}>
+                  <Ticket className="w-4 h-4" />
+                  <span className="hidden sm:inline">Bookings</span>
+                </NavLink>
+                
+                <NavLink to="/create" className={navLinkClass}>
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Create</span>
+                </NavLink>
+              </>
+            )}
           </div>
 
           <div className="flex items-center space-x-3">
@@ -69,7 +82,7 @@ export function Navigation() {
                 <button
                   onClick={() => {
                     logout();
-                    navigate({ page: 'home' });
+                    navigate('/');
                   }}
                   className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-700 hover:text-red-600 hover:bg-red-50 transition-all duration-200 font-medium"
                 >

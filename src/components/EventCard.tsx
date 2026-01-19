@@ -1,7 +1,7 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, MapPin, Users, TrendingUp, Star, ChevronRight } from 'lucide-react';
 import { EventResponse } from '../services/eventService';
-import { useRouter } from '../context/Router';
 import { CategoryBadge } from './CategoryBadge';
 
 interface EventCardProps {
@@ -9,13 +9,13 @@ interface EventCardProps {
 }
 
 export function EventCard({ event }: EventCardProps) {
-  const { navigate } = useRouter();
+  const navigate = useNavigate();
   const ticketPercentage = ((event.capacity - event.ticketsAvailable) / event.capacity) * 100;
   const isPopular = ticketPercentage > 70;
   
   return (
     <div 
-      onClick={() => navigate({ page: 'event-detail', id: event._id })}
+      onClick={() => navigate(`/events/${event._id}`)}
       className="group bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
     >
       <div className="relative overflow-hidden h-56">

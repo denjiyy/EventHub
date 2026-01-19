@@ -1,25 +1,26 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, Clock, MapPin, Users, X, ArrowLeft } from 'lucide-react';
-import { useRouter } from '../context/Router';
 import { useApp } from '../context/AppContext';
 import { EventService, EventResponse } from '../services/eventService';
 import { CategoryBadge } from '../components/CategoryBadge';
 
-interface EventDetailPageProps {
-  eventId: string;
-}
-
-export function EventDetailPage({ eventId }: EventDetailPageProps) {
-  const { navigate } = useRouter();
+export function EventDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { createBooking, isAuthenticated } = useApp();
   const [event, setEvent] = useState<EventResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ticketCount, setTicketCount] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const loadEvent = async () => {
+      if (!id) return;
+      
       try {
         setLoading(true);
-        const eventData = await EventService.getEventById(eventId);
+        const eventData = await EventService.getEventById(id);
         setEvent(eventData);
       } catch (error) {
         console.error('Error loading event:', error);
@@ -29,11 +30,11 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
     };
 
     loadEvent();
-  }, [eventId]);
-  const [ticketCount, setTicketCount] = useState(1);
-  const [submitting, setSubmitting] = useState(false);
+  }, [id]);
 
   const handleSubmit = async () => {
+    if (!id) return;
+    
     if (!isAuthenticated) {
       alert('Please log in to book tickets');
       return;
@@ -46,8 +47,8 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
 
     try {
       setSubmitting(true);
-      await createBooking(eventId, ticketCount);
-      navigate({ page: 'bookings' });
+      await createBooking(id, ticketCount);
+      navigate('/bookings');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Booking failed');
     } finally {
@@ -76,7 +77,7 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Event Not Found</h2>
           <p className="text-gray-600 mb-6">The event you're looking for doesn't exist</p>
           <button
-            onClick={() => navigate({ page: 'events' })}
+            onClick={() => navigate('/events')}
             className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
           >
             Browse Events
@@ -92,7 +93,7 @@ export function EventDetailPage({ eventId }: EventDetailPageProps) {
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-indigo-50 pt-24 pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <button 
-          onClick={() => navigate({ page: 'events' })}
+          onClick={() => navigate('/events')}
           className="mb-6 flex items-center gap-2 text-gray-600 hover:text-violet-600 transition-colors font-medium"
         >
           <ArrowLeft className="w-4 h-4" />
