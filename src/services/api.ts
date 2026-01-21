@@ -1,10 +1,40 @@
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+
 const API_BASE_URL = 'http://localhost:5001/api';
 
 class APIClient {
-  private baseURL: string;
+  private axiosInstance: AxiosInstance;
 
   constructor(baseURL: string) {
-    this.baseURL = baseURL;
+    this.axiosInstance = axios.create({
+      baseURL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Add request interceptor to include auth token
+    this.axiosInstance.interceptors.request.use(
+      (config) => {
+        const token = this.getToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    // Add response interceptor for error handling
+    this.axiosInstance.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        const message = error.response?.data?.message || error.message || 'An error occurred';
+        return Promise.reject(new Error(message));
+      }
+    );
   }
 
   setToken(token: string) {
@@ -19,59 +49,24 @@ class APIClient {
     localStorage.removeItem('token');
   }
 
-  private getHeaders() {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    const token = this.getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    return headers;
+  async get<T = any>(endpoint: string, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.axiosInstance.get(endpoint, config);
+    return response.data;
   }
 
-  async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${this.baseURL}${endpoint}`;
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...this.getHeaders(),
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || `API Error: ${response.statusText}`);
-    }
-
-    if (response.status === 204) {
-      return null;
-    }
-
-    return response.json();
+  async post<T = any>(endpoint: string, body?: any, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.axiosInstance.post(endpoint, body, config);
+    return response.data;
   }
 
-  get(endpoint: string) {
-    return this.request(endpoint, { method: 'GET' });
+  async put<T = any>(endpoint: string, body?: any, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.axiosInstance.put(endpoint, body, config);
+    return response.data;
   }
 
-  post(endpoint: string, body?: any) {
-    return this.request(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
-  }
-
-  put(endpoint: string, body?: any) {
-    return this.request(endpoint, {
-      method: 'PUT',
-      body: JSON.stringify(body),
-    });
-  }
-
-  delete(endpoint: string) {
-    return this.request(endpoint, { method: 'DELETE' });
+  async delete<T = any>(endpoint: string, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.axiosInstance.delete(endpoint, config);
+    return response.data;
   }
 }
 
