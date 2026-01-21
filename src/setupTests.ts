@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom';
 
-// Mock fetch globally
-global.fetch = jest.fn();
+// Mock axios
+jest.mock('axios');
 
 // Mock localStorage
 const localStorageMock = {
@@ -10,7 +10,7 @@ const localStorageMock = {
   removeItem: jest.fn(),
   clear: jest.fn(),
 };
-global.localStorage = localStorageMock;
+global.localStorage = localStorageMock as any;
 
 // Mock URL.createObjectURL
 global.URL.createObjectURL = jest.fn(() => 'mock-url');
