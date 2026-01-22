@@ -13,6 +13,8 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.17.19",
+    "@tanstack/react-query-devtools": "^5.17.19",
     "axios": "^1.6.2",
     "cors": "^2.8.5",
     "lucide-react": "^0.263.1",
