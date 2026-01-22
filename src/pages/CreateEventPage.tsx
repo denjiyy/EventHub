@@ -1,13 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { ArrowLeft, Lock, Upload, X } from 'lucide-react';
-import { CategoryService, CategoryResponse } from '../services/categoryService';
-import { EventService } from '../services/eventService';
+import { useCategories } from '../hooks/useCategories';
+import { useCreateEvent } from '../hooks/useEvents';
 
 export function CreateEventPage() {
   const navigate = useNavigate();
   const { addToast, isAuthenticated } = useApp();
+
+  // Use React Query hooks
+  const categoriesQuery = useCategories();
+  const categories = categoriesQuery.data || [];
+  const createEventMutation = useCreateEvent();
 
   if (!isAuthenticated) {
     return (
@@ -36,30 +41,20 @@ export function CreateEventPage() {
     time: '',
     location: '',
     city: '',
-    category: '',
+    category: categories.length > 0 ? categories[0]._id : '',
     price: 0,
     capacity: 100,
     image: ''
   });
   
-  const [categories, setCategories] = useState<CategoryResponse[]>([]);
-  const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
   
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const cats = await CategoryService.getAllCategories();
-        setCategories(cats);
-        if (cats.length > 0) {
-          setFormData(prev => ({ ...prev, category: cats[0]._id }));
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-      }
-    };
-    fetchCategories();
-  }, []);
+  // Update category when categories load
+  React.useEffect(() => {
+    if (categories.length > 0 && !formData.category) {
+      setFormData(prev => ({ ...prev, category: categories[0]._id }));
+    }
+  }, [categories, formData.category]);
 
   const handleImageUrlChange = (url: string) => {
     setFormData({ ...formData, image: url });
@@ -77,13 +72,12 @@ export function CreateEventPage() {
       return;
     }
     
-    setLoading(true);
     try {
       // Combine date and time into ISO string
       const dateTime = new Date(`${formData.date}T${formData.time}`).toISOString();
       const fullLocation = `${formData.location}, ${formData.city}`;
       
-      await EventService.createEvent({
+      await createEventMutation.mutateAsync({
         title: formData.title,
         description: formData.description,
         category: formData.category,
@@ -99,8 +93,6 @@ export function CreateEventPage() {
       navigate('/events');
     } catch (error: any) {
       addToast(error.message || 'Failed to create event', 'error');
-    } finally {
-      setLoading(false);
     }
   };
   
@@ -122,7 +114,6 @@ export function CreateEventPage() {
         
         <div className="bg-white rounded-3xl shadow-xl p-8">
           <div className="space-y-6">
-            { }
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Event Image URL
@@ -319,10 +310,10 @@ export function CreateEventPage() {
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={createEventMutation.isPending}
                 className="flex-1 px-6 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-2xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                {loading ? 'Creating Event...' : 'Create Event'}
+                {createEventMutation.isPending ? 'Creating Event...' : 'Create Event'}
               </button>
             </div>
           </div>

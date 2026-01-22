@@ -1,17 +1,23 @@
-import React, { useState } from 'react';
-import { Search, Star, Calendar } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import React, { useState, useMemo } from 'react';
+import { Search, Star } from 'lucide-react';
+import { useEvents } from '../hooks/useEvents';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { EventCard } from '../components/EventCard';
 
 export function HomePage() {
-  const { events, loading } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   
-  const filteredEvents = events.filter(event =>
-    event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    event.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Use React Query hook instead of context
+  const eventsQuery = useEvents();
+  const events = eventsQuery.data || [];
+  const isLoading = eventsQuery.isLoading;
+  
+  const filteredEvents = useMemo(() => {
+    return events.filter(event =>
+      event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      event.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [events, searchTerm]);
 
   const featuredEvents = filteredEvents.filter(e => e.featured);
   const regularEvents = filteredEvents.filter(e => !e.featured);
@@ -62,7 +68,7 @@ export function HomePage() {
               <h2 className="text-3xl font-bold text-gray-900">Featured Events</h2>
             </div>
             
-            {loading ? (
+            {isLoading ? (
               <LoadingSkeleton />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -78,7 +84,7 @@ export function HomePage() {
           <div>
             <h2 className="text-3xl font-bold text-gray-900 mb-6">All Events</h2>
             
-            {loading ? (
+            {isLoading ? (
               <LoadingSkeleton />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -90,7 +96,7 @@ export function HomePage() {
           </div>
         )}
         
-        {!loading && filteredEvents.length === 0 && (
+        {!isLoading && filteredEvents.length === 0 && (
           <div className="text-center py-20">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
               <Search className="w-8 h-8 text-gray-400" />

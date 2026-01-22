@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Mail, Lock, User } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useLogin, useRegister } from '../hooks/useAuth';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -8,9 +9,8 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const { login, register } = useApp();
+  const { addToast } = useApp();
   const [isSignUp, setIsSignUp] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -20,32 +20,45 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     lastName: '',
   });
 
+  const loginMutation = useLogin();
+  const registerMutation = useRegister();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
     try {
       if (isSignUp) {
         if (!formData.firstName || !formData.lastName) {
           setError('First and last name are required');
-          setLoading(false);
           return;
         }
-        await register(formData.email, formData.password, formData.firstName, formData.lastName);
+        await registerMutation.mutateAsync(formData);
+        addToast('Registration successful!', 'success');
       } else {
-        await login(formData.email, formData.password);
+        await loginMutation.mutateAsync(formData);
+        addToast('Login successful!', 'success');
       }
+      
       setFormData({ email: '', password: '', firstName: '', lastName: '' });
       onClose();
+      
+      window.location.reload();
     } catch (err: any) {
       setError(err.message || 'An error occurred');
-    } finally {
-      setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (!isOpen) {
+      setFormData({ email: '', password: '', firstName: '', lastName: '' });
+      setError(null);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const isLoading = loginMutation.isPending || registerMutation.isPending;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -143,10 +156,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={isLoading}
             className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-6"
           >
-            {loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Sign In'}
+            {isLoading ? 'Processing...' : isSignUp ? 'Create Account' : 'Sign In'}
           </button>
 
           <div className="text-center">

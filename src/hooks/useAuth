@@ -1,0 +1,59 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AuthService } from '../services/authService';
+
+// Query keys
+export const authKeys = {
+  all: ['auth'],
+  profile: () => ['auth', 'profile'],
+};
+
+// Fetch user profile
+export function useProfile(enabled) {
+  const isEnabled = enabled !== undefined ? enabled : true;
+  
+  return useQuery({
+    queryKey: authKeys.profile(),
+    queryFn: () => AuthService.getProfile(),
+    enabled: isEnabled && AuthService.isAuthenticated(),
+    retry: false,
+  });
+}
+
+// Login mutation
+export function useLogin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (credentials) => AuthService.login(credentials.email, credentials.password),
+    onSuccess: () => {
+      // Refetch profile after login
+      queryClient.invalidateQueries({ queryKey: authKeys.profile() });
+    },
+  });
+}
+
+// Register mutation
+export function useRegister() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data) => 
+      AuthService.register(data.email, data.password, data.firstName, data.lastName, data.phoneNumber),
+    onSuccess: () => {
+      // Refetch profile after registration
+      queryClient.invalidateQueries({ queryKey: authKeys.profile() });
+    },
+  });
+}
+
+// Update profile mutation
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data) => AuthService.updateProfile(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: authKeys.profile() });
+    },
+  });
+}

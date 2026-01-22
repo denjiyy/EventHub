@@ -1,62 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, Clock, MapPin, Users, X, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { EventService, EventResponse } from '../services/eventService';
+import { useEvent } from '../hooks/useEvents';
+import { useCreateBooking } from '../hooks/useBookings';
 import { CategoryBadge } from '../components/CategoryBadge';
 
 export function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { createBooking, isAuthenticated } = useApp();
-  const [event, setEvent] = useState<EventResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { isAuthenticated, addToast } = useApp();
   const [ticketCount, setTicketCount] = useState(1);
-  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const loadEvent = async () => {
-      if (!id) return;
-      
-      try {
-        setLoading(true);
-        const eventData = await EventService.getEventById(id);
-        setEvent(eventData);
-      } catch (error) {
-        console.error('Error loading event:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadEvent();
-  }, [id]);
+  // Use React Query hooks
+  const eventQuery = useEvent(id!);
+  const event = eventQuery.data;
+  const isLoading = eventQuery.isLoading;
+  const createBookingMutation = useCreateBooking();
 
   const handleSubmit = async () => {
     if (!id) return;
     
     if (!isAuthenticated) {
-      alert('Please log in to book tickets');
+      addToast('Please log in to book tickets', 'error');
       return;
     }
 
     if (ticketCount < 1 || !event || ticketCount > event.ticketsAvailable) {
-      alert('Invalid ticket count');
+      addToast('Invalid ticket count', 'error');
       return;
     }
 
     try {
-      setSubmitting(true);
-      await createBooking(id, ticketCount);
+      await createBookingMutation.mutateAsync({
+        eventId: id,
+        numberOfTickets: ticketCount,
+      });
+      
+      addToast('Booking confirmed!', 'success');
       navigate('/bookings');
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Booking failed');
-    } finally {
-      setSubmitting(false);
+    } catch (error: any) {
+      addToast(error.message || 'Booking failed', 'error');
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-16">
         <div className="text-center">
@@ -221,10 +209,10 @@ export function EventDetailPage() {
                   
                   <button
                     onClick={handleSubmit}
-                    disabled={submitting || event.ticketsAvailable === 0}
+                    disabled={createBookingMutation.isPending || event.ticketsAvailable === 0}
                     className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
                   >
-                    {submitting ? (
+                    {createBookingMutation.isPending ? (
                       <span className="flex items-center justify-center gap-2">
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         Processing...

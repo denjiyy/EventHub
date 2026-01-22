@@ -8,9 +8,12 @@ import { EventsPage } from './pages/EventsPage';
 import { EventDetailPage } from './pages/EventDetailPage';
 import { BookingsPage } from './pages/BookingsPage';
 import { CreateEventPage } from './pages/CreateEventPage';
+import { SeedService } from './services/seedService';
+import { useEvents } from './hooks/useEvents';
 
-export default function App() {
+function AppInitializer() {
   const appData = useAppData();
+  const eventsQuery = useEvents();
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -23,37 +26,37 @@ export default function App() {
         if (!hasSeeded) {
           console.log('🌱 Starting database seed...');
           try {
-            await appData.seedDatabase();
+            await SeedService.seedDatabase();
             localStorage.setItem('db_seeded', 'true');
             console.log('✅ Database seeded successfully!');
-          } catch (seedError: any) {
+            
+            // Refetch events after seeding
+            await eventsQuery.refetch();
+          } catch (seedError) {
             console.error('❌ Seeding failed:', seedError.message);
             console.log('⚠️  Attempting to fetch existing data anyway...');
           }
         } else {
-          console.log('📚 Loading existing events...');
+          console.log('📚 Data already seeded');
         }
-        
-        // Always try to fetch events
-        const events = await appData.fetchEvents();
-        console.log(`📋 Loaded ${events.length} events`);
-        
-        if (events.length === 0) {
-          console.warn('⚠️  No events found! You may need to seed the database.');
-          console.log('💡 To re-seed: Run localStorage.removeItem("db_seeded") and refresh');
-        }
-      } catch (error: any) {
+      } catch (error) {
         console.error('❌ Error initializing app:', error.message);
-        console.error('Full error:', error);
       }
     };
 
     initializeApp();
-  }, []);
+  }, [eventsQuery]);
+
+  return null;
+}
+
+export default function App() {
+  const appData = useAppData();
   
   return (
     <AppContext.Provider value={appData}>
       <BrowserRouter>
+        <AppInitializer />
         <div className="min-h-screen bg-gray-50">
           <Navigation />
           <ToastContainer />

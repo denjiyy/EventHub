@@ -1,27 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Calendar, Filter } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useEvents } from '../hooks/useEvents';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { EventCard } from '../components/EventCard';
 
 export function EventsPage() {
-  const { events, loading, fetchEvents } = useApp();
   const [filters, setFilters] = useState({
     search: '',
     category: '',
   });
   const [showFilters, setShowFilters] = useState(false);
   
+  // Use React Query hook with filters
+  const eventsQuery = useEvents(
+    filters.search || filters.category ? filters : undefined
+  );
+  const events = eventsQuery.data || [];
+  const isLoading = eventsQuery.isLoading;
+  
   const categories = ['Music', 'Technology', 'Art', 'Food', 'Sports', 'Comedy'];
   
-  useEffect(() => {
-    fetchEvents(filters.search || filters.category ? filters : undefined);
-  }, []);
-  
   const handleFilterChange = (key: string, value: string) => {
-    const newFilters = { ...filters, [key]: value };
-    setFilters(newFilters);
-    fetchEvents(newFilters.search || newFilters.category ? newFilters : undefined);
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+  
+  const clearFilters = () => {
+    setFilters({ search: '', category: '' });
   };
   
   return (
@@ -74,7 +78,7 @@ export function EventsPage() {
           </div>
         )}
         
-        {loading ? (
+        {isLoading ? (
           <LoadingSkeleton />
         ) : events.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -90,10 +94,7 @@ export function EventsPage() {
             <h3 className="text-2xl font-semibold text-gray-900 mb-2">No events found</h3>
             <p className="text-gray-600 mb-6">Try adjusting your filters to see more results</p>
             <button
-              onClick={() => {
-                setFilters({ search: '', category: '' });
-                fetchEvents();
-              }}
+              onClick={clearFilters}
               className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
             >
               Clear Filters
