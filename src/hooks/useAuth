@@ -13,9 +13,23 @@ export function useProfile(enabled) {
   
   return useQuery({
     queryKey: authKeys.profile(),
-    queryFn: () => AuthService.getProfile(),
-    enabled: isEnabled && AuthService.isAuthenticated(),
+    queryFn: async () => {
+      const token = AuthService.getToken();
+      if (!token) {
+        return null;
+      }
+      
+      try {
+        return await AuthService.getProfile();
+      } catch (error) {
+        console.log('Invalid token, clearing authentication');
+        AuthService.logout();
+        return null;
+      }
+    },
+    enabled: isEnabled && !!AuthService.getToken(),
     retry: false,
+    staleTime: 1000 * 60 * 5,
   });
 }
 
@@ -26,7 +40,6 @@ export function useLogin() {
   return useMutation({
     mutationFn: (credentials) => AuthService.login(credentials.email, credentials.password),
     onSuccess: () => {
-      // Refetch profile after login
       queryClient.invalidateQueries({ queryKey: authKeys.profile() });
     },
   });
@@ -40,7 +53,6 @@ export function useRegister() {
     mutationFn: (data) => 
       AuthService.register(data.email, data.password, data.firstName, data.lastName, data.phoneNumber),
     onSuccess: () => {
-      // Refetch profile after registration
       queryClient.invalidateQueries({ queryKey: authKeys.profile() });
     },
   });

@@ -1,24 +1,7 @@
 import { apiClient } from './api';
 
-export interface AuthResponse {
-  token: string;
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    phoneNumber?: string;
-  };
-}
-
 export class AuthService {
-  static async register(
-    email: string,
-    password: string,
-    firstName: string,
-    lastName: string,
-    phoneNumber?: string
-  ): Promise<AuthResponse> {
+  static async register(email, password, firstName, lastName, phoneNumber) {
     const response = await apiClient.post('/auth/register', {
       email,
       password,
@@ -30,7 +13,7 @@ export class AuthService {
     return response;
   }
 
-  static async login(email: string, password: string): Promise<AuthResponse> {
+  static async login(email, password) {
     const response = await apiClient.post('/auth/login', {
       email,
       password,
@@ -40,10 +23,17 @@ export class AuthService {
   }
 
   static async getProfile() {
-    return apiClient.get('/auth/profile');
+    try {
+      return await apiClient.get('/auth/profile');
+    } catch (error) {
+      if (error.message && (error.message.includes('401') || error.message.includes('400'))) {
+        this.logout();
+      }
+      throw error;
+    }
   }
 
-  static async updateProfile(data: any) {
+  static async updateProfile(data) {
     return apiClient.put('/auth/profile', data);
   }
 
@@ -51,7 +41,11 @@ export class AuthService {
     apiClient.clearToken();
   }
 
-  static isAuthenticated(): boolean {
+  static isAuthenticated() {
     return !!apiClient.getToken();
+  }
+  
+  static getToken() {
+    return apiClient.getToken();
   }
 }
